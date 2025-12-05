@@ -1,1 +1,67 @@
-site_name: My Docs
+site_name: Projet Atténuation Laser
+
+# extra_css :
+#   - stylesheets/extra.css
+
+nav:
+  - Home : index.md
+  - Notre projet: notre-projet.md
+  - Matériel et Librairies: materiel-et-librairies.md
+  - Scripts python : scripts-python.md
+  - Interfaces Moteur et Puissance-mètre: interfaces-moteur-&-puissance-mètre.md
+
+theme:
+  name : material
+  palette:
+    - scheme : slate
+      toggle:
+        icon : material/weather-sunny
+        name : passer au mode jour
+        primary : custom
+        accent : custom
+    
+    - scheme : default
+      toggle :
+        icon : material/weather-night
+        name : passer au mode nuit
+        primary : custom
+        accent : custom
+    
+extra_css:
+  - stylesheets/extra.css
+
+# theme:
+#   name: material
+#   language : fr
+#   palette:
+#     # Dark mode
+#     - scheme: Projet Outils Num
+#       toggle:
+#         icon : material/weather-sunny
+#         name : Passer au mode jour
+#       primary : custom
+#       accent : custom
+    
+#     # Light mode
+#     - scheme : Projet Outils Num
+#       toggle :
+#         icon : material/weather-night
+#         name : Passer au mode nuit
+#       primary : custom
+#       accent : custom
+# extra_css :
+#   - stylesheets/extra.css
+
+markdown_extensions :
+  - admonition
+  - codehilite
+  - footnotes
+  - toc :
+      permalink : true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/SamCab-OPTIQ
+  
+
