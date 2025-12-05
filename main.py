@@ -137,10 +137,7 @@ with ui.column().classes('w-full items-center gap-6 mt-4'):
                         
                         if P_target < 0: P_target = 0
 
-                        # CALCUL PHYSIQUE 
-                        # P = Pmax * cos^2(2*theta)
-                        # sqrt(P/Pmax) = cos(2*theta)
-                        # 2*theta = arccos(sqrt(P/Pmax))
+
                         ratio = P_target / P_max
                         # si ratio > 1 à cause d'un arrondi
                         ratio = min(ratio, 1.0)
