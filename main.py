@@ -26,7 +26,7 @@ with ui.column().classes('w-full items-center gap-6 mt-4'):
             ui.label('P_in').classes('text-lg font-semibold')
             ui.label('→').classes('text-lg font-semibold')
             with ui.card().classes('p-2 text-center border-2 border-blue-500 rounded-lg bg-white'):
-                ui.label('Demi-lamelle + Polariseur').classes('text-lg')
+                ui.label('Lame demi-onde + Polariseur').classes('text-lg')
             ui.label('→').classes('text-lg font-semibold')
             ui.label('P_out').classes('text-lg font-semibold')
 
