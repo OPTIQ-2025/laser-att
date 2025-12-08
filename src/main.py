@@ -1,7 +1,10 @@
 from nicegui import ui
 from emulation import PMEmulation, EmulatedMotor
-#from integra import Integra  # classe réelle
-#from motor_arduino import ArduinoMotor  # classe réelle
+from integra import INTEGRA  # classe réelle
+from motor_half_lambda import MotorController, motor
+import math
+
+
 
 
 
@@ -53,8 +56,8 @@ with ui.column().classes('w-full items-center gap-6 mt-4'):
                         status_label.set_text("Simulation activée")
 
                     elif mode == 'integra':
-                        #from integra_wrapper import IntegraPowerMeter
-                        pm = IntegraPowerMeter("COM3")
+                        
+                        pm = INTEGRA
                         reply = pm.detect()
                         status_label.set_text(f"INTEGRA détecté : {reply}")
 
@@ -114,56 +117,103 @@ with ui.column().classes('w-full items-center gap-6 mt-4'):
        
         # MotorController
         
+           # --- BLOC 2 : CONTRÔLE MOTEUR (Vert) ---
         with ui.card().classes(
-            'flex flex-col items-center bg-green-50 hover:bg-green-100 cursor-pointer min-w-[250px] md:w-5/12 p-4'
+            'flex flex-col items-center bg-green-50 min-w-[250px] md:w-5/12'
         ).props('outlined') as motor_card:
-
-            ui.label('MotorController').classes('text-xl font-bold text-green-700 mb-2')
-
-            motor_mode_select = ui.select(['emulation', 'arduino'], value='emulation', label='Mode').classes('w-full mb-1')
-            motor_status_label = ui.label("Non connecté").classes('text-sm mb-2')
-
-            def connect_motor():
-                global motor, motor_mode
-                motor_mode = motor_mode_select.value
-                try:
-                    if motor_mode == 'emulation':
-                        motor = EmulatedMotor()
-                        motor_status_label.set_text("Simulation activée")
-                    elif motor_mode == 'arduino':
-                       
-                        motor = ArduinoMotor()
-                        motor_status_label.set_text("Moteur Arduino connecté")
-                    ui.notify(f"Moteur connecté en mode {motor_mode}", color="green")
-                except Exception as e:
-                    motor = EmulatedMotor()
-                    motor_status_label.set_text(f"Erreur: {e}, Simulation activée")
-                    ui.notify(f"Erreur connexion moteur : {e}", color="red")
-
-            ui.button("Connect", on_click=connect_motor).classes('w-full mb-2')
-
-            motor_angle_display = ui.label('0.0°').classes('text-lg font-mono mb-2')
+            ui.label('Contrôle Moteur').classes('text-xl font-bold text-green-700 mb-2')
+           
+            # Affichage Position
+            # Utiliser l'instance `motor` fournie par le module `motor_half_lambda`
+            current_angle_init = motor.current_angle_lame if motor else 0.0
+            motor_angle_display = ui.label(f'{current_angle_init:.1f}°').classes('text-lg mb-2')
+           
+            # Cadran Visuel Simple
             with ui.element('div').style(
-                'width:150px; height:150px; border-radius:50%; border:2px solid #28a745; position:relative; margin-bottom:10px; overflow:hidden;'
+                'width:100px; height:100px; border:2px solid #28a745; border-radius:50%; position:relative; margin-bottom:10px;'
             ) as motor_circle:
                 motor_needle = ui.element('div').style(
-                    'width:2px; height:70px; background:#28a745; position:absolute; bottom:50%; left:50%; transform-origin:bottom center; transform:rotate(0deg); transition: transform 0.5s;'
+                    f'width:2px; height:45px; background:#28a745; position:absolute; bottom:50%; left:50%; '
+                    f'transform-origin:bottom center; transform:rotate({current_angle_init}deg); transition: transform 0.5s;'
                 )
 
-            angle_input = ui.number(min=0, max=180, value=0.0, step=0.1, label='Angle souhaité').classes('w-full mb-2')
+            # --- ONGLETS ---
+            with ui.tabs().classes('w-full') as tabs:
+                manual_tab = ui.tab('Angle')
+                power_tab = ui.tab('Puissance')
 
-            def move_motor():
-                if motor:
-                    target_angle = float(f'{angle_input.value:.1f}')
-                    motor.go_to_angle(target_angle)
-                    current_angle = motor.read_angle()
-                    motor_angle_display.set_text(f'{current_angle:.1f}°')
-                    motor_needle.style(
-                        f'width:2px; height:70px; background:#28a745; position:absolute; bottom:50%; left:50%; '
-                        f'transform-origin:bottom center; transform:rotate({current_angle}deg); transition: transform 0.5s;'
-                    )
+            with ui.tab_panels(tabs, value=manual_tab).classes('w-full bg-transparent'):
+               
+                # --- MODE 1 : ANGLE MANUEL ---
+                with ui.tab_panel(manual_tab):
+                    angle_input = ui.number(
+                        min=-180, max=180, value=current_angle_init, step=1.0,
+                        label='Angle (-180° à +180°)'
+                    ).classes('w-full')
 
-            ui.button("Aller à l'angle", on_click=move_motor).classes('mt-2 w-full')
+                    def move_motor_angle(preset_angle=None):
+                        if preset_angle is not None:
+                            angle_input.set_value(preset_angle)
+                       
+                        if angle_input.value is None: return
+                        target = float(f'{angle_input.value:.1f}')
+                       
+                        print(f"Déplacement manuel vers {target}°")
+                        if motor:
+                            motor.go_to_angle(target)
+                            # Récupérer la position effective (en degrés lame)
+                            new_ang = motor.get_position()
+                            motor_angle_display.set_text(f'{new_ang:.1f}°')
+                            motor_needle.style(f'transform:rotate({new_ang}deg); width:2px; height:45px; background:#28a745; position:absolute; bottom:50%; left:50%; transform-origin:bottom center;')
+
+                    angle_input.on('keydown.enter', lambda: move_motor_angle())
+                   
+                    with ui.row().classes('justify-center gap-2 mt-2'):
+                        ui.button('0°', on_click=lambda: move_motor_angle(0)).props('outline size=sm')
+                        ui.button('22.5°', on_click=lambda: move_motor_angle(22.5)).props('outline size=sm')
+                        ui.button('45°', on_click=lambda: move_motor_angle(45)).props('outline size=sm')
+
+                # --- MODE 2 : PUISSANCE CIBLE ---
+                with ui.tab_panel(power_tab):
+                    # Calibration
+                    ui.label('Calibration (P max)').classes('text-xs text-gray-500')
+                    p_max_input = ui.number(value=20.0, min=0.1, step=0.1, suffix='mW').props('dense outlined').classes('w-full mb-2')
+                   
+                    # Cible
+                    target_power_input = ui.number(
+                        label='Puissance souhaitée', suffix='mW', min=0, step=0.1
+                    ).classes('w-full')
+
+                    def move_motor_power():
+                        P_target = target_power_input.value
+                        P_max = p_max_input.value
+                       
+                        if P_target is None or P_max is None: return
+                       
+                        if P_target > P_max:
+                            ui.notify(f'Impossible : {P_target} > {P_max}', type='warning')
+                            return
+                       
+                        if P_target < 0: P_target = 0
+
+                        # Calcul Physique
+                        ratio = P_target / P_max
+                        ratio = min(ratio, 1.0)
+                       
+                        angle_rad = 0.5 * math.acos(math.sqrt(ratio))
+                        angle_deg = math.degrees(angle_rad)
+                       
+                        print(f"Puissance demandée: {P_target}mW -> Angle calculé: {angle_deg:.2f}°")
+                       
+                        if motor:
+                            motor.go_to_angle(angle_deg)
+                            new_ang = motor.get_position()
+                            motor_angle_display.set_text(f'{new_ang:.1f}°')
+                            motor_needle.style(f'transform:rotate({new_ang}deg); width:2px; height:45px; background:#28a745; position:absolute; bottom:50%; left:50%; transform-origin:bottom center;')
+                            ui.notify(f'Réglé à {angle_deg:.1f}° pour {P_target} mW')
+
+                    target_power_input.on('keydown.enter', move_motor_power)
+                    ui.button('Régler Puissance', on_click=move_motor_power).classes('w-full mt-2')
 
 
 ui.run()
