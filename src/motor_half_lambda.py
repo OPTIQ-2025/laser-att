@@ -5,8 +5,11 @@ from pypot.dynamixel.io import DxlIO
 BAUDRATE = 1000000
 ID_MOTEUR = 1
 
+RAPPORT_REDUCTION = 5.0
+
 # Paramètres de précision
-TOLERANCE = 0.1  
+TOLERANCE_LAME = 0.2  
+TOLERANCE = TOLERANCE_LAME * RAPPORT_REDUCTION 
 TIMEOUT = 4.0    
 
 
@@ -58,7 +61,8 @@ class MotorController:
     """Contrôleur pour le moteur"""
     
     def __init__(self):
-        self.current_angle = 0.0
+        self.current_angle_lame = 0.0 
+        self.current_angle_moteur = 0.0
         self.is_connected = False
         self.port = trouver_port()
     
@@ -91,20 +95,28 @@ class MotorController:
                 pass
         self.is_connected = False
     
+    def moteur_to_lame(self, angle_moteur):
+        """Convertit l'angle du moteur en angle de la lame"""
+        return angle_moteur / RAPPORT_REDUCTION
+    
+    def lame_to_moteur(self, angle_lame):
+        """Convertit l'angle de la lame en angle du moteur"""
+        return angle_lame * RAPPORT_REDUCTION
+    
     def get_position(self):
-        """Lit la position actuelle (0-360°) avec connexion temporaire"""
         dxl_io = self._connect()
         if not dxl_io:
-            return self.current_angle
+            return self.current_angle_lame
         
         try:
             angle = dxl_io.get_present_position([ID_MOTEUR])[0]
-            self.current_angle = angle
-            print(f"Position lue: {self.current_angle:.1f}°")
-            return self.current_angle
+            self.current_angle_moteur = angle
+            self.current_angle_lame = self.moteur_to_lame(angle)
+            print(f"Position lue: {self.current_angle_lame:.1f}°")
+            return self.current_angle_lame
         except Exception as e:
             print(f"Erreur lecture position: {e}")
-            return self.current_angle
+            return self.current_angle_lame
         finally:
             self._disconnect(dxl_io)
     
@@ -115,8 +127,8 @@ class MotorController:
             return False
         
         try:
-            target_angle = angle
-            print(f"Déplacement vers {target_angle}° (précision ±{TOLERANCE}°)")
+            target_angle = self.lame_to_moteur(angle)
+            print(f"Déplacement vers {angle}° (précision ±{TOLERANCE_LAME}°)")
 
             # Lire position de départ
             start_pos = dxl_io.get_present_position([ID_MOTEUR])[0]
@@ -129,7 +141,8 @@ class MotorController:
             while time.time() - start_time < TIMEOUT:
                 try:
                     current_pos = dxl_io.get_present_position([ID_MOTEUR])[0]
-                    erreur = abs(current_pos - target_angle)
+                    current_pos_lame = self.moteur_to_lame(current_pos)
+                    erreur = abs(current_pos_lame - angle)
                     
                     # Affichage de progression
                     if int((time.time() - start_time) * 10) % 5 == 0:  
