@@ -1,8 +1,33 @@
 from nicegui import ui
-from emulation import PMEmulation, EmulatedMotor
+from emulation import PMEmulation, EmulatedMotor, IntegraPowerMeter
 from integra import INTEGRA  # classe réelle
 from motor_half_lambda import MotorController, motor
 import math
+
+
+# Choix du backend moteur : préférence pour `motor` (hardware), sinon bascule vers `EmulatedMotor`
+active_motor = None
+try:
+    if 'motor' in globals() and motor is not None:
+        # essayer d'utiliser le moteur matériel s'il expose get_position() ou un attribut d'angle
+        try:
+            if hasattr(motor, 'get_position'):
+                _ = motor.get_position()
+                active_motor = motor
+            elif hasattr(motor, 'current_angle_lame'):
+                active_motor = motor
+            else:
+                raise Exception('motor sans API de position')
+        except Exception:
+            # fallback vers simulation
+            active_motor = EmulatedMotor()
+            print('Motor simulation active (fallback from main)')
+    else:
+        active_motor = EmulatedMotor()
+        print('Motor simulation active (no motor found)')
+except Exception as e:
+    print(f'Erreur sélection backend moteur: {e} — utilisation simulation')
+    active_motor = EmulatedMotor()
 
 
 
@@ -56,8 +81,9 @@ with ui.column().classes('w-full items-center gap-6 mt-4'):
                         status_label.set_text("Simulation activée")
 
                     elif mode == 'integra':
-                        
-                        pm = INTEGRA
+                        # Utiliser le wrapper IntegraPowerMeter qui encapsule la
+                        # classe INTEGRA et fournit detect/measure/zero
+                        pm = IntegraPowerMeter()
                         reply = pm.detect()
                         status_label.set_text(f"INTEGRA détecté : {reply}")
 
@@ -72,6 +98,7 @@ with ui.column().classes('w-full items-center gap-6 mt-4'):
 
             # Affichage puissance
             pd_power = ui.label('0.00 mW').classes('text-lg font-mono mb-2')
+            pd_wavelength = ui.label('λ: -- nm').classes('text-sm text-gray-600 mb-2')
             with ui.element('div').style(
                 'width:40px; height:150px; border-radius:6px; border:1px solid #007BFF; background:#e0f0ff; position:relative; margin-bottom:10px; overflow:hidden;'
             ) as power_bar:
@@ -106,6 +133,16 @@ with ui.column().classes('w-full items-center gap-6 mt-4'):
                 if pm:
                     value = pm.measure()
                     pd_power.set_text(f'{value:.2f} mW')
+                    # longueur d'onde si disponible
+                    if hasattr(pm, 'get_wavelength'):
+                        try:
+                            wl = pm.get_wavelength()
+                            if wl:
+                                pd_wavelength.set_text(f'λ: {wl:.0f} nm')
+                            else:
+                                pd_wavelength.set_text('λ: -- nm')
+                        except Exception:
+                            pd_wavelength.set_text('λ: -- nm')
                     height_percent = min(max(value / 20 * 100, 0), 100)
                     power_fill.style(
                         f'position:absolute; bottom:0; width:100%; background:#007BFF; height:{height_percent}%; transition: height 0.5s;'
@@ -124,8 +161,18 @@ with ui.column().classes('w-full items-center gap-6 mt-4'):
             ui.label('Contrôle Moteur').classes('text-xl font-bold text-green-700 mb-2')
            
             # Affichage Position
-            # Utiliser l'instance `motor` fournie par le module `motor_half_lambda`
-            current_angle_init = motor.current_angle_lame if motor else 0.0
+            # Utiliser l'instance `active_motor` (hardware ou simulation)
+            current_angle_init = 0.0
+            try:
+                if hasattr(active_motor, 'get_position'):
+                    current_angle_init = float(active_motor.get_position())
+                elif hasattr(active_motor, 'current_angle_lame'):
+                    current_angle_init = float(active_motor.current_angle_lame)
+                elif hasattr(active_motor, 'current_angle'):
+                    current_angle_init = float(active_motor.current_angle)
+            except Exception:
+                current_angle_init = 0.0
+
             motor_angle_display = ui.label(f'{current_angle_init:.1f}°').classes('text-lg mb-2')
            
             # Cadran Visuel Simple
@@ -159,10 +206,25 @@ with ui.column().classes('w-full items-center gap-6 mt-4'):
                         target = float(f'{angle_input.value:.1f}')
                        
                         print(f"Déplacement manuel vers {target}°")
-                        if motor:
-                            motor.go_to_angle(target)
+                        if active_motor:
+                            try:
+                                active_motor.go_to_angle(target)
+                            except Exception:
+                                pass
                             # Récupérer la position effective (en degrés lame)
-                            new_ang = motor.get_position()
+                            try:
+                                if hasattr(active_motor, 'get_position'):
+                                    new_ang = float(active_motor.get_position())
+                                elif hasattr(active_motor, 'read_angle'):
+                                    new_ang = float(active_motor.read_angle())
+                                elif hasattr(active_motor, 'current_angle_lame'):
+                                    new_ang = float(active_motor.current_angle_lame)
+                                elif hasattr(active_motor, 'current_angle'):
+                                    new_ang = float(active_motor.current_angle)
+                                else:
+                                    new_ang = target
+                            except Exception:
+                                new_ang = target
                             motor_angle_display.set_text(f'{new_ang:.1f}°')
                             motor_needle.style(f'transform:rotate({new_ang}deg); width:2px; height:45px; background:#28a745; position:absolute; bottom:50%; left:50%; transform-origin:bottom center;')
 
@@ -205,9 +267,24 @@ with ui.column().classes('w-full items-center gap-6 mt-4'):
                        
                         print(f"Puissance demandée: {P_target}mW -> Angle calculé: {angle_deg:.2f}°")
                        
-                        if motor:
-                            motor.go_to_angle(angle_deg)
-                            new_ang = motor.get_position()
+                        if active_motor:
+                            try:
+                                active_motor.go_to_angle(angle_deg)
+                            except Exception:
+                                pass
+                            try:
+                                if hasattr(active_motor, 'get_position'):
+                                    new_ang = float(active_motor.get_position())
+                                elif hasattr(active_motor, 'read_angle'):
+                                    new_ang = float(active_motor.read_angle())
+                                elif hasattr(active_motor, 'current_angle_lame'):
+                                    new_ang = float(active_motor.current_angle_lame)
+                                elif hasattr(active_motor, 'current_angle'):
+                                    new_ang = float(active_motor.current_angle)
+                                else:
+                                    new_ang = angle_deg
+                            except Exception:
+                                new_ang = angle_deg
                             motor_angle_display.set_text(f'{new_ang:.1f}°')
                             motor_needle.style(f'transform:rotate({new_ang}deg); width:2px; height:45px; background:#28a745; position:absolute; bottom:50%; left:50%; transform-origin:bottom center;')
                             ui.notify(f'Réglé à {angle_deg:.1f}° pour {P_target} mW')

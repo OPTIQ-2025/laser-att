@@ -8,6 +8,10 @@ class PMEmulation:
         """Retourne une puissance aléatoire entre 5 et 20 mW."""
         return 5 + random.random() * 15
     
+    def get_wavelength(self) -> float:
+        """Retourne une longueur d'onde simulée (nm)."""
+        return 633.0
+    
 
 class EmulatedMotor:
     """Classe de simulation pour le moteur."""
@@ -22,6 +26,11 @@ class EmulatedMotor:
     def read_angle(self) -> float:
         """Retourne l'angle actuel (simulation)."""
         return self.current_angle
+
+    # Compatibilité: méthode attendue par `motor_half_lambda.MotorController`
+    def get_position(self) -> float:
+        """Alias pour read_angle() — retourne l'angle actuel en degrés (lame)."""
+        return self.read_angle()
 motor = None
 pm = None
 powermeter_mode = 'emulation'
@@ -51,4 +60,15 @@ class IntegraPowerMeter:
         self.device.send_command("ZRO")
         self.device.read_line()
         return self.device.reply
+    
+    def get_wavelength(self) -> float:
+        """Récupère la longueur d'onde courante depuis l'appareil INTEGRA.
+        Retourne 0.0 si non disponible ou en cas d'erreur.
+        """
+        try:
+            self.device.get_status()
+            # INTEGRA stocke la longueur d'onde dans wavelength_cur
+            return float(self.device.wavelength_cur)
+        except Exception:
+            return 0.0
     
