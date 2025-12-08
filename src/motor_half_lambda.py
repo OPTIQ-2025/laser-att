@@ -5,40 +5,22 @@ from pypot.dynamixel.io import DxlIO
 BAUDRATE = 1000000
 ID_MOTEUR = 1
 
-RAPPORT_REDUCTION = 5.0
-
-# Paramètres de précision
-TOLERANCE_LAME = 0.2  
-TOLERANCE = TOLERANCE_LAME * RAPPORT_REDUCTION 
-TIMEOUT = 4.0    
-
-
-PID_P = 10.0     
-PID_I = 1.2    
-PID_D = 25.0    
-VITESSE = 140
+# 180° moteur = 70° lame, rapport = 2.57:1
+RAPPORT_REDUCTION = 2.57  
 
 def trouver_port():
-    """Trouve le port du moteur en testant COM0-COM9 et quelques ports Linux"""
-
+    """Trouve le port du moteur"""
     
-    # Liste des ports à tester (Windows)
-    ports_windows = [f"COM{i}" for i in range(10)]  # COM0 à COM9
-    
-    # Ports Linux courants
+    ports_windows = [f"COM{i}" for i in range(10)]
     ports_linux = ["/dev/ttyUSB0", "/dev/ttyUSB1", "/dev/ttyACM0", "/dev/ttyACM1"]
-    
-    # Combiner les listes
     ports_a_tester = ports_windows + ports_linux
     
     for port in ports_a_tester:
         print(f"Test {port}...", end=" ")
         
         try:
-            # Essayer de se connecter
             dxl_io = DxlIO(port, baudrate=BAUDRATE)
             
-            # Essayer de scanner les moteurs
             try:
                 moteurs = dxl_io.scan()
                 if moteurs:
@@ -54,29 +36,38 @@ def trouver_port():
             
         except Exception as e:
             print("Échec")
+    
     print("Aucun port valide trouvé")
     return None
 
 class MotorController:
-    """Contrôleur pour le moteur"""
+    """Contrôleur pour le moteur Dynamixel (version simplifiée 0-45°)"""
     
-    def __init__(self):
-        self.current_angle_lame = 0.0 
-        self.current_angle_moteur = 0.0
+    def __init__(self, p=11.0, i=1.2, d=24.0, vitesse=140):
+        """Initialise le contrôleur moteur avec paramètres PID réglables"""
+
+        self.current_angle_lame = 0.0
         self.is_connected = False
         self.port = trouver_port()
-    
+        
+        # Paramètres PID et vitesse 
+        self.PID_P = p  
+        self.PID_I = i  
+        self.PID_D = d  
+        self.VITESSE = vitesse  
+        
+        print(f"Paramètres PID initiaux: P={self.PID_P}, I={self.PID_I}, D={self.PID_D}, Vitesse={self.VITESSE}")
+        
     def _connect(self):
         """Établit une connexion temporaire au moteur avec configuration PID"""
         try:
             dxl_io = DxlIO(self.port, baudrate=BAUDRATE)
             dxl_io.enable_torque({ID_MOTEUR: True})
             
-            # Configuration PID et vitesse
-            dxl_io.set_pid_gain({ID_MOTEUR: (PID_P, PID_I, PID_D)})
-            dxl_io.set_moving_speed({ID_MOTEUR: VITESSE})
+            dxl_io.set_pid_gain({ID_MOTEUR: (self.PID_P, self.PID_I, self.PID_D)})
+            dxl_io.set_moving_speed({ID_MOTEUR: self.VITESSE})
             
-            print(f"Moteur connecté avec PID: P={PID_P}, I={PID_I}, D={PID_D}, Vitesse={VITESSE}")
+            print(f"Moteur connecté avec PID: P={self.PID_P}, I={self.PID_I}, D={self.PID_D}, Vitesse={self.VITESSE}")
             self.is_connected = True
             return dxl_io
         except Exception as e:
@@ -88,91 +79,122 @@ class MotorController:
         """Ferme la connexion au moteur"""
         if dxl_io:
             try:
-                # Désactiver le torque avant de fermer
                 dxl_io.disable_torque({ID_MOTEUR: True})
                 dxl_io.close()
             except:
                 pass
         self.is_connected = False
     
-    def moteur_to_lame(self, angle_moteur):
-        """Convertit l'angle du moteur en angle de la lame"""
-        return angle_moteur / RAPPORT_REDUCTION
+    def set_pid(self, p=None, i=None, d=None, vitesse=None):
+        """Modifie les paramètres PID et vitesse"""
+
+        if p is not None:
+            self.PID_P = p
+        if i is not None:
+            self.PID_I = i
+        if d is not None:
+            self.PID_D = d
+        if vitesse is not None:
+            self.VITESSE = vitesse
+        
+        print(f"Paramètres PID mis à jour: P={self.PID_P}, I={self.PID_I}, D={self.PID_D}, Vitesse={self.VITESSE}")
+    
+        if self.is_connected:
+            dxl_io = DxlIO(self.port, baudrate=BAUDRATE)
+            try:
+                dxl_io.enable_torque({ID_MOTEUR: True})
+                dxl_io.set_pid_gain({ID_MOTEUR: (self.PID_P, self.PID_I, self.PID_D)})
+                dxl_io.set_moving_speed({ID_MOTEUR: self.VITESSE})
+                dxl_io.disable_torque({ID_MOTEUR: True})
+                dxl_io.close()
+                print("Paramètres appliqués au moteur")
+                return True
+            except Exception as e:
+                print(f"Erreur application paramètres: {e}")
+                return False
+        
+        return True
     
     def lame_to_moteur(self, angle_lame):
-        """Convertit l'angle de la lame en angle du moteur"""
+        """Convertit l'angle lame en angle moteur"""
+        if angle_lame < 0:
+            angle_lame = 0
+        elif angle_lame > 45:
+            angle_lame = 45
+
         return angle_lame * RAPPORT_REDUCTION
     
+    def moteur_to_lame(self, angle_moteur):
+        """Convertit l'angle moteur en angle lame"""
+        return angle_moteur / RAPPORT_REDUCTION
+    
     def get_position(self):
+        """Lit la position actuelle de la lame"""
         dxl_io = self._connect()
         if not dxl_io:
             return self.current_angle_lame
         
         try:
-            angle = dxl_io.get_present_position([ID_MOTEUR])[0]
-            self.current_angle_moteur = angle
-            self.current_angle_lame = self.moteur_to_lame(angle)
-            print(f"Position lue: {self.current_angle_lame:.1f}°")
+            motor_angle = dxl_io.get_present_position([ID_MOTEUR])[0]
+            self.current_angle_lame = self.moteur_to_lame(motor_angle)
+
+            if self.current_angle_lame < 0:
+                self.current_angle_lame = 0
+            elif self.current_angle_lame > 45:
+                self.current_angle_lame = 45
+            
+            print(f"Position: moteur={motor_angle:.1f}° → lame={self.current_angle_lame:.1f}°")
             return self.current_angle_lame
+            
         except Exception as e:
-            print(f"Erreur lecture position: {e}")
+            print(f"Erreur lecture: {e}")
             return self.current_angle_lame
         finally:
             self._disconnect(dxl_io)
     
-    def go_to_angle(self, angle):
-        """Déplace le moteur vers un angle avec connexion temporaire"""
+    def go_to_angle(self, target_angle_lame):
+        """Déplace la lame vers un angle (0-45°)"""
+        if target_angle_lame < 0:
+            target_angle_lame = 0
+        elif target_angle_lame > 45:
+            target_angle_lame = 45
+        
         dxl_io = self._connect()
         if not dxl_io:
             return False
         
         try:
-            target_angle = self.lame_to_moteur(angle)
-            print(f"Déplacement vers {angle}° (précision ±{TOLERANCE_LAME}°)")
+            target_motor_angle = self.lame_to_moteur(target_angle_lame)
+            
+            print(f"Déplacement vers {target_angle_lame}° lame ({target_motor_angle:.1f}° moteur)")
+            
+            dxl_io.set_goal_position({ID_MOTEUR: target_motor_angle})
+            
+            time.sleep(2)
 
-            # Lire position de départ
-            start_pos = dxl_io.get_present_position([ID_MOTEUR])[0]
-            print(f"Position départ: {start_pos:.1f}°")
-            # Commande de déplacement
-            dxl_io.set_goal_position({ID_MOTEUR: target_angle})
+            motor_angle = dxl_io.get_present_position([ID_MOTEUR])[0]
+            self.current_angle_lame = self.moteur_to_lame(motor_angle)
             
-            # Attente avec précision et timeout
-            start_time = time.time()
-            while time.time() - start_time < TIMEOUT:
-                try:
-                    current_pos = dxl_io.get_present_position([ID_MOTEUR])[0]
-                    current_pos_lame = self.moteur_to_lame(current_pos)
-                    erreur = abs(current_pos_lame - angle)
-                    
-                    # Affichage de progression
-                    if int((time.time() - start_time) * 10) % 5 == 0:  
-                        print(f"Position: {current_pos:6.1f}° | Erreur: {erreur:5.1f}°")
-                    
-                    if erreur <= TOLERANCE:
-                        self.current_angle = target_angle
-                        print(f"Position atteinte avec précision ({erreur:.1f}° d'erreur)")
-                        return True
-                except Exception as e:
-                    print(f"Erreur lecture pendant mouvement: {e}")
-                
-                time.sleep(0.05)
+
+            erreur = abs(self.current_angle_lame - target_angle_lame)
+            print(f"Mouvement terminé. Position: {self.current_angle_lame:.1f}°, Erreur: {erreur:.1f}°")
             
-            # Timeout atteint
-            try:
-                current_pos = dxl_io.get_present_position([ID_MOTEUR])[0]
-                self.current_angle = current_pos
-                erreur_finale = abs(current_pos - target_angle)
-                print(f"Timeout - Position finale: {current_pos:.1f}° (erreur: {erreur_finale:.1f}°)")
-            except:
-                pass
-            
-            return False
+            return erreur <= 2.0  
             
         except Exception as e:
             print(f"Erreur pendant le déplacement: {e}")
             return False
         finally:
             self._disconnect(dxl_io)
+    
+    def get_pid_params(self):
+        """Retourne les paramètres PID actuels"""
+        return {
+            'P': self.PID_P,
+            'I': self.PID_I,
+            'D': self.PID_D,
+            'vitesse': self.VITESSE
+        }
 
-# Instance globale
+# Instance globale avec paramètres par défaut
 motor = MotorController()
