@@ -26,3 +26,29 @@ motor = None
 pm = None
 powermeter_mode = 'emulation'
 motor_mode = 'emulation'
+
+from integra import INTEGRA
+
+class IntegraPowerMeter:
+    def __init__(self, port="COM3"):
+        self.device = INTEGRA(port)
+
+    def detect(self) -> str:
+        self.device.set_pwc(633)
+        self.device.send_command("*CAU")
+        self.device.read_line()
+        return self.device.reply
+
+    def measure(self) -> float:
+        self.device.send_command("LEV?")
+        self.device.read_line()
+        try:
+            return float(self.device.reply)
+        except:
+            return 0.0
+
+    def zero(self) -> str:
+        self.device.send_command("ZRO")
+        self.device.read_line()
+        return self.device.reply
+    

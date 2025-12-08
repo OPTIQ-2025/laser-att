@@ -28,30 +28,38 @@ with ui.column().classes('w-full items-center gap-6 mt-4'):
     with ui.row().classes('w-full md:w-2/3 gap-6').style('flex-wrap: wrap'):
 
         
-        # PowerMeter
+    
        
+        # PowerMeter
+
         with ui.card().classes(
             'flex flex-col items-center bg-blue-50 hover:bg-blue-100 cursor-pointer min-w-[250px] md:w-5/12 p-4'
         ).props('outlined') as pd_card:
 
             ui.label('PowerMeter').classes('text-xl font-bold text-blue-700 mb-2')
 
-            # Sélecteur et statut
-            mode_select = ui.select(['emulation', 'integra'], value='emulation', label='Mode').classes('w-full mb-1')
+            mode_select = ui.select(['emulation', 'integra'], value=None, label='Mode').classes('w-full mb-1')
             status_label = ui.label("Non connecté").classes('text-sm mb-2')
 
+            pm = None   # variable globale future
+
             def connect_powermeter():
-                global pm, powermeter_mode
-                powermeter_mode = mode_select.value
+                global pm
+                mode = mode_select.value
+
                 try:
-                    if powermeter_mode == 'emulation':
+                    if mode == 'emulation':
                         pm = PMEmulation()
                         status_label.set_text("Simulation activée")
-                    elif powermeter_mode == 'integra':
-                        
-                        pm = Integra()
-                        status_label.set_text(" Powermeter Integra connecté")
-                    ui.notify(f"Powermeter connecté en mode {powermeter_mode}", color="green")
+
+                    elif mode == 'integra':
+                        #from integra_wrapper import IntegraPowerMeter
+                        pm = IntegraPowerMeter("COM3")
+                        reply = pm.detect()
+                        status_label.set_text(f"INTEGRA détecté : {reply}")
+
+                    ui.notify(f"Powermeter connecté en mode {mode}", color="green")
+
                 except Exception as e:
                     pm = PMEmulation()
                     status_label.set_text(f"Erreur: {e}, Simulation activée")
@@ -68,12 +76,37 @@ with ui.column().classes('w-full items-center gap-6 mt-4'):
                     'position:absolute; bottom:0; width:100%; background:#007BFF; height:0%; transition: height 0.5s;'
                 )
 
+            # BOUTON ZERO
+            def zero_powermeter():
+                global pm
+                if not pm:
+                    ui.notify("Powermeter non connecté", color="red")
+                    return
+
+                if hasattr(pm, "zero"):
+                    reply = pm.zero()
+                    status_label.set_text(f"ZERO effectué : {reply}")
+                else:
+                    status_label.set_text("ZERO simulation effectué")
+
+                pd_power.set_text("0.00 mW")
+                power_fill.style(
+                    'position:absolute; bottom:0; width:100%; background:#007BFF; height:0%; transition: height 0.5s;'
+                )
+
+                ui.notify("Powermeter remis à zéro", color="green")
+
+            ui.button("Zero", on_click=zero_powermeter).classes('w-full bg-red-100 mb-2')
+
+            # Timer mise à jour puissance
             def update_power():
                 if pm:
                     value = pm.measure()
                     pd_power.set_text(f'{value:.2f} mW')
                     height_percent = min(max(value / 20 * 100, 0), 100)
-                    power_fill.style(f'position:absolute; bottom:0; width:100%; background:#007BFF; height:{height_percent}%; transition: height 0.5s;')
+                    power_fill.style(
+                        f'position:absolute; bottom:0; width:100%; background:#007BFF; height:{height_percent}%; transition: height 0.5s;'
+                    )
                 return True
 
             ui.timer(1.0, update_power)
