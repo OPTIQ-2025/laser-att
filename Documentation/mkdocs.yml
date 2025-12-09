@@ -4,7 +4,6 @@ site_name: Projet Atténuation Laser
 #   - stylesheets/extra.css
 
 nav:
-  - Home : index.md
   - Notre projet: notre-projet.md
   - Matériel et Librairies: materiel-et-librairies.md
   - Scripts python : scripts-python.md
