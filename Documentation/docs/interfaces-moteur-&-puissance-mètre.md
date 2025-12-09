@@ -9,3 +9,5 @@ La rubrique de gauche "PowerMeter" correspond au puissance-mètre. La valeur aff
 Enfin, la dernière rubrique "Motor Controller" permet de piloter la rotation de la lame demi-onde en saisissant l'angle voulu (-180; 180).
 
 ### Exemple GUI
+
+![exemple ui](images/ui.png)
