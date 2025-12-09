@@ -84,3 +84,8 @@ Voici la liste des librairies nécéssaires pour lancer le programme :
 - [random](https://docs.python.org/3/library/random.html){: target = "_blank"} :  
   
         Sert dans emulation.py pour simuler une puissance de photodiode réaliste quand le powermeter n’est pas connecté.  
+
+- [Plugins & extensions]
+
+        pip install mkdocs-include-markdown-plugin
+        pip install pymdown-extensions
