@@ -1,4 +1,33 @@
 ## Code Controlleur moteur
+
+La motorisation a pour rôle de contrôler l’orientation d’une lame demi-onde montée sur un moteur Dynamixel afin de régler l’atténuation du faisceau laser.  
+En modifiant l’angle de la lame, on modifie la polarisation du faisceau, ce qui permet de faire varier la puissance transmise au détecteur.
+  
+Les objectifs principaux de cette partie sont :  
+  
+- permettre un déplacement précis de la lame à un angle choisi  
+- garantir un mouvement fiable, reproductible et stable  
+- fournir à l’interface une API simple (go_to_angle et get_position)  
+- gérer les paramètres PID et la vitesse du moteur  
+- convertir les angles demandés en angles moteur réels en tenant compte du rapport mécanique  
+- assurer une compatibilité simulation / matériel réel pour que l’interface fonctionne dans tous les contextes  
+  
+La motorisation constitue donc le bras mécanique du projet : c’est elle qui applique physiquement l’atténuation demandée par l’utilisateur ou calculée automatiquement.  
+
+Cette partie est entièrement codée dans le fichier `motor_half_lambda.py`  
+
+Ce fichier contient une classe unique (MotorController) qui encapsule toutes les opérations nécessaires au pilotage du Dynamixel :  
+  
+- détection automatique du port série utilisé par le moteur  
+- gestion de l’ouverture et fermeture du port  
+- configuration des paramètres moteur (PID, vitesse)  
+- conversion des angles entre la lame et le moteur (rapport ≈ 2.57:1)  
+- déplacements contrôlés à un angle donné  
+- lecture de la position réelle  
+- protection contre les angles hors plage (0–45° sur la lame)  
+- création d’une instance globale motor utilisée directement par l’interface  
+
+
 ```python
 {% include "../../src/motor_half_lambda.py" %}
 ```
@@ -119,6 +148,50 @@ Ce script n’est pas utilisé par l’interface NiceGUI : il sert uniquement au
 ```
 
 ## Code GUI
+
+L’interface utilisateur a pour but de piloter le système de manière simple et intuitive, sans que l’utilisateur ait à manipuler directement les modules internes (moteur, powermeter, conversions, communication série, etc.).  
+
+Elle permet :  
+  
+- de suivre en temps réel la puissance mesurée  
+- de contrôler la position de la lame demi-onde  
+- de définir une puissance cible (calcul automatique de l’angle)  
+- de choisir entre les modes réel et simulation pour le moteur et le powermeter  
+- de visualiser immédiatement les résultats (bargraph, aiguille, messages)  
+
+Toute l’interface est gérée dans `main.py`    
+Ce fichier contient :  
+  
+- l’initialisation de NiceGUI  
+- la création de toutes les cartes et widgets (boutons, champs, bargraph, jauge)  
+- le choix automatique entre mode réel et émulation pour le moteur et le powermeter  
+- le rafraîchissement automatique de la puissance mesurée  
+- les fonctions de contrôle appelées par les boutons (déplacement moteur, zero, connect, etc.)  
+  
+Le fichier main.py construit l’interface graphique NiceGUI et orchestre les interactions entre l’utilisateur et les modules internes.  
+  
+Fonctionnement de l'interface :  
+
+1. Sélection du mode
+L’utilisateur choisit si le moteur et le powermeter fonctionnent en mode réel ou en simulation.  
+L’UI crée automatiquement le bon backend correspondant.  
+  
+2. Affichage et mise à jour de la puissance  
+Un timer NiceGUI interroge régulièrement pm.measure() et met à jour :  
+  
+- la valeur numérique de puissance  
+- la barre verticale d’intensité  
+- la longueur d’onde affichée  
+
+3. Contrôle du moteur  
+Lorsqu’un angle est entré ou lorsqu’un préréglage est cliqué :  
+- l’UI appelle `active_motor.go_to_angle(angle)`  
+- lit la position réelle ou simulée via `get_position()`  
+- met à jour l’indicateur circulaire et l’affichage numérique  
+
+4. Mode puissance cible  
+L’utilisateur peut entrer une puissance souhaitée.  
+L’UI calcule automatiquement l’angle nécessaire via la loi en cos², puis `appelle active_motor.  go_to_angle()`
 
 ```python
 {% include "../../src/main.py" %}
