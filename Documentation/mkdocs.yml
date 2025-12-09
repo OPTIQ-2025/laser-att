@@ -14,6 +14,10 @@ theme:
   name : material
   features :
     - navigation.tabs
+    - content.code.copy
+    - content.code.annotate
+    - content.code.select
+
   palette:
     - scheme : slate
       toggle:
@@ -28,40 +32,43 @@ theme:
         name : passer au mode nuit
         primary : custom
         accent : custom
-    
+  highlightjs: false
+
+extra:
+  highlight:
+    theme: material
+
 extra_css:
   - stylesheets/extra.css
 
-# theme:
-#   name: material
-#   language : fr
-#   palette:
-#     # Dark mode
-#     - scheme: Projet Outils Num
-#       toggle:
-#         icon : material/weather-sunny
-#         name : Passer au mode jour
-#       primary : custom
-#       accent : custom
-    
-#     # Light mode
-#     - scheme : Projet Outils Num
-#       toggle :
-#         icon : material/weather-night
-#         name : Passer au mode nuit
-#       primary : custom
-#       accent : custom
-# extra_css :
-#   - stylesheets/extra.css
-
 markdown_extensions :
   - admonition
-  - codehilite
+  - codehilite:
+      guess_lang: false
+      use_pygments: true
+      pygments_style: monokai
+      noclasses: true
   - footnotes
   - attr_list
   - md_in_html
   - toc :
-      permalink : true
+      permalink: true
+      toc_depth: 1-3
+      title: Table des matières
+  - pymdownx.snippets:
+      base_path: ["src", "docs"]
+  - pymdownx.inlinehilite
+  - pymdownx.highlight:
+      anchor_linenums: true
+      linenums: true
+      linenums_style: pymdownx-inline 
+      pygments_lang_class: true
+  - pymdownx.superfences
+
+plugins:
+  - include-markdown :
+      base_path: docs
+
 
 extra:
   social:
