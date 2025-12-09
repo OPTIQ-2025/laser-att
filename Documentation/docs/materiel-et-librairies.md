@@ -4,9 +4,8 @@
   
 ### Source laser :
 
-- Laser HeNe : longueur d'onde à 633nm
- (Mettre scshéma d'un HeNe ?)
-
+- Laser HeNe : longueur d'onde à 633nm  
+  
 ### Optiques utilisées :
 
 - [Lame lambda/2](https://www.thorlabs.com/thorproduct.cfm?partnumber=WPH05M-633){: target = "_blank"}  
@@ -16,15 +15,16 @@
         - 25.4mm de dimètre total  
         - 5.8mm d'épaisseur
     
-(image de la lame)  
+![image de la lame](images/lambda.jpg){ width="25%" }  
+
   
 - [PBS cube](https://www.thorlabs.com/thorproduct.cfm?partnumber=PBS251){: target = "_blank"}  
   
         - Optimisé pour des longueurs d'ondes entre 480-680nm  
         - Dimensions : 25.4 x 25.4 x 25.4mm  
 
-(image du cube)    
-  
+![image du cube](images/cube.jpg){ width="25%" }  
+
 ### Éléments mécaniques et émectroniques :
 
 - [Servomoteur pas à pas](https://emanual.robotis.com/docs/en/dxl/mx/mx-12w/){: target = "_blank"}  
@@ -32,15 +32,15 @@
         - Résolution angulaire : 0.088°  
         - Nombres de pas totaux : 4096  
   
-(image du moteur)  
+![image du moteur](images/moteur.png){ width="25%" }  
   
 - [Alimentation du moteur](https://www.generationrobots.com/fr/400867-smps2dynamixel.html){: target = "_blank"}  
    
-(image de l'alim)  
+![image de l'alim](images/alim.png){ width="25%" }  
 
 - [Contrôleur USB](https://emanual.robotis.com/docs/en/parts/interface/u2d2/){: target = "_blank"}  
   
-(image du contrôleur USB)  
+![image du controleur](images/usb.png){ width="25%" }  
 
 ### Photodétection :
 
@@ -50,7 +50,7 @@
         - Surface de détection : ~0.8cm²  
         - Diamètre utile : 10mm  
   
-(image de la photodiode)  
+![Image de la photodiode](images/pd.png){ width="30%" }  
   
   
 ## Librairies utilisées
