@@ -1,7 +1,8 @@
 site_name: Projet Atténuation Laser
+repo_url: https://github.com/OPTIQ-2025/laser-att
 
-# extra_css :
-#   - stylesheets/extra.css
+extra_css :
+  - stylesheets/extra.css
 
 nav:
   - Notre projet: index.md
@@ -68,10 +69,9 @@ plugins:
   - include-markdown :
       base_path: docs
 
-
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/SamCab-OPTIQ
+      link: https://github.com/OPTIQ-2025
   
 
